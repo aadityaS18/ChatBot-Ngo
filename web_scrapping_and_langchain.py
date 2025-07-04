@@ -18,7 +18,6 @@ requests
 """)
 
 
-files.download("requirements.txt")
 
 import requests
 from bs4 import BeautifulSoup
