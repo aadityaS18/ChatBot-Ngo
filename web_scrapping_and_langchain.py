@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1xrsfyp9rVAiCb63JIfEV682isk-37iCL
 """
 
-!pip install requests
 !pip install beautifulsoup4
 !pip install cohere
 !pip install langchain cohere faiss-cpu
