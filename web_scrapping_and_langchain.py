@@ -7,13 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1xrsfyp9rVAiCb63JIfEV682isk-37iCL
 """
 
-pip install beautifulsoup4
-pip install cohere
-pip install langchain cohere faiss-cpu
-pip install openai
-pip install -U langchain-community
-pip install langchain faiss-cpu cohere tiktoken
-pip install flask flask-ngrok
+
 
 with open("requirements.txt", "w") as f:
     f.write("""bs4
