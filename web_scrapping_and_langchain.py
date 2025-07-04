@@ -229,3 +229,64 @@ print(result)
 
 result=qa.run("how can we get in touch with Ekaimpact?")
 print(result)
+
+from langchain.text_splitter import CharacterTextSplitter
+from langchain_community.embeddings import CohereEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.docstore.document import Document
+
+# 1. Load your text file
+with open("eka_site_content.txt", "r", encoding="utf-8") as f:
+    raw_text = f.read()
+
+# 2. Split into chunks
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+texts = text_splitter.split_text(raw_text[:3000])
+
+# 3. Create Document objects
+docs = [Document(page_content=t) for t in texts]
+
+# 4. Create embeddings
+embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
+
+# 5. Build and save FAISS index
+vectorstore = FAISS.from_documents(docs, embedding)
+vectorstore.save_local("faiss_index")
+
+print(f"✅ Total chunks: {len(texts)}")
+
+from flask import Flask, request, jsonify
+from langchain.vectorstores import FAISS
+from langchain_community.llms import Cohere
+from langchain.chains import RetrievalQA
+from langchain_community.embeddings import CohereEmbeddings
+
+app = Flask(__name__)
+
+# Load embeddings and vector store
+embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
+vectorstore = FAISS.load_local("faiss_index", embedding, allow_dangerous_deserialization=True)
+
+llm = Cohere(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", model="command", max_tokens=500)
+qa = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever(), return_source_documents=False)
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    query = request.json.get("query")
+    result = qa.run(query)
+    return jsonify({"response": result})
+
+if __name__ == "__main__":
+    app.run()
+
+from langchain_community.embeddings import CohereEmbeddings
+from langchain_community.vectorstores import FAISS
+
+embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
+print("🔁 Generating embedding...")
+vectorstore = FAISS.from_documents(docs, embedding)
+print("✅ Embedding complete")
+
+print("💾 Saving FAISS index...")
+vectorstore.save_local("faiss_index")
+print("✅ All done")
