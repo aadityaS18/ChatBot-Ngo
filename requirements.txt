@@ -1,8 +1,9 @@
-flask
+"flask
 langchain
+langchain-community
 cohere
-bs4
-requests
 faiss-cpu
-tqdm
+requests
+beautifulsoup4
 pydantic
+tqdm"
