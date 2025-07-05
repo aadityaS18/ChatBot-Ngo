@@ -1,5 +1,8 @@
-bs4
-cohere
+flask
 langchain
-pydantic
+cohere
+bs4
 requests
+faiss-cpu
+tqdm
+pydantic
