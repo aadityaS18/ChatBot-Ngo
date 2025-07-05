@@ -1,4 +1,4 @@
-"flask
+flask
 langchain
 langchain-community
 cohere
@@ -6,4 +6,4 @@ faiss-cpu
 requests
 beautifulsoup4
 pydantic
-tqdm"
+tqdm
