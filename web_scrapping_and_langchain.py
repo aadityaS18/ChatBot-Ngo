@@ -7,7 +7,13 @@ Original file is located at
     https://colab.research.google.com/drive/1xrsfyp9rVAiCb63JIfEV682isk-37iCL
 """
 
-
+!pip install beautifulsoup4
+!pip install cohere
+!pip install langchain cohere faiss-cpu
+!pip install openai
+!pip install -U langchain-community
+!pip install langchain faiss-cpu cohere tiktoken
+!pip install flask flask-ngrok
 
 with open("requirements.txt", "w") as f:
     f.write("""bs4
@@ -17,7 +23,8 @@ pydantic
 requests
 """)
 
-
+from google.colab import files
+files.download("requirements.txt")
 
 import requests
 from bs4 import BeautifulSoup
@@ -75,37 +82,36 @@ with open("eka_site_content.txt","r",encoding="utf-8")as f:
 
 import cohere
 
+# Initialize the Cohere client
 co = cohere.Client("zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
-# Load your cleaned text
+
+
 with open("eka_cleaned.txt", "r", encoding="utf-8") as f:
     content = f.read()
 
-prompt = f"""Summarize the NGO website content below into the following sections:
-- Mission
-- Programs
-- Goals
-- Impact
-- Partners
-- Contact Info
+prompt = f"""Summarize the NGO website content below:
 
-Website Content:
 {content}
 
 Summary:
 """
 
+
 response = co.generate(
-    model='command',
+    model="command",
     prompt=prompt,
     max_tokens=400,
     temperature=0.5
 )
 
+
 summary = response.generations[0].text.strip()
 
-# Save to file
-with open("eka_cleaned.txt", "w", encoding="utf-8") as f:
+
+with open("summary.txt", "w", encoding="utf-8") as f:
     f.write(summary)
+
+print("✅ Summary saved to summary.txt")
 
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -201,6 +207,9 @@ print(result)
 result = qa.run("Who founded EkaImpact?")
 print(result)
 
+result=qa.run("Who all are in the team of ekaimpact?")
+print(result)
+
 result = qa.run("What are the main programs run by EkaImpact?")
 print(result)
 
@@ -220,6 +229,9 @@ result=qa.run("How can we join Ekaimpact?")
 print(result)
 
 result=qa.run("how can we get in touch with Ekaimpact?")
+print(result)
+
+result=qa.run("who all are in the team of ekaimapct?")
 print(result)
 
 from langchain.text_splitter import CharacterTextSplitter
@@ -282,3 +294,7 @@ print("✅ Embedding complete")
 print("💾 Saving FAISS index...")
 vectorstore.save_local("faiss_index")
 print("✅ All done")
+
+!pip install -r requirements.txt
+
+vectorstore.save_local("faiss_index")
