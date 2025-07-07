@@ -82,9 +82,8 @@ with open("eka_site_content.txt","r",encoding="utf-8")as f:
 
 import cohere
 
-# Initialize the Cohere client
-co = cohere.Client("zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
 
+co = cohere.Client("zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
 
 with open("eka_cleaned.txt", "r", encoding="utf-8") as f:
     content = f.read()
@@ -96,14 +95,12 @@ prompt = f"""Summarize the NGO website content below:
 Summary:
 """
 
-
 response = co.generate(
     model="command",
     prompt=prompt,
     max_tokens=400,
     temperature=0.5
 )
-
 
 summary = response.generations[0].text.strip()
 
@@ -148,11 +145,6 @@ class MyCohereEmbedder(Embeddings):
             input_type="search_query"
         )
         return response.embeddings[0]
-
-embedding = MyCohereEmbedder(api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
-
-from langchain.vectorstores import FAISS
-vectorstore = FAISS.from_documents(docs, embedding)
 
 from langchain.llms.base import LLM
 from pydantic import Field
@@ -240,12 +232,12 @@ from langchain.vectorstores import FAISS
 from langchain.docstore.document import Document
 
 # 1. Load your text file
-with open("eka_site_content.txt", "r", encoding="utf-8") as f:
+with open("eka_cleaned.txt", "r", encoding="utf-8") as f:
     raw_text = f.read()
 
 # 2. Split into chunks
 text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-texts = text_splitter.split_text(raw_text[:3000])
+texts = text_splitter.split_text(raw_text)
 
 # 3. Create Document objects
 docs = [Document(page_content=t) for t in texts]
