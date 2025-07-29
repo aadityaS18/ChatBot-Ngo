@@ -15,6 +15,71 @@ Original file is located at
 !pip install langchain faiss-cpu cohere tiktoken
 !pip install flask flask-ngrok
 
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
+import time
+
+
+base_url = "https://www.ekaimpact.org"
+visited = set()
+all_text = []
+
+def is_valid_url(url):
+    """Checks if a URL is internal and not already visited."""
+    parsed = urlparse(url)
+    return (parsed.netloc == "" or parsed.netloc == "www.ekaimpact.org") and url not in visited
+
+def extract_text_from_html(html):
+    """Extract visible text from HTML using BeautifulSoup."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove script and style elements
+    for script_or_style in soup(["script", "style"]):
+        script_or_style.extract()
+
+    # Get text and clean
+    text = soup.get_text(separator="\n", strip=True)
+    return text
+
+def scrape_all_pages(url):
+    """Recursively scrapes internal pages and extracts text."""
+    if not is_valid_url(url):
+        return
+
+    visited.add(url)
+    print(f"🔍 Scraping: {url}")
+
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            print(f"❌ Failed: {url}")
+            return
+
+        html = response.text
+        text = extract_text_from_html(html)
+        all_text.append(text)
+
+        # Parse page and find internal links
+        soup = BeautifulSoup(html, "html.parser")
+        for a_tag in soup.find_all("a", href=True):
+            link = urljoin(url, a_tag["href"])
+            if is_valid_url(link):
+                scrape_all_pages(link)
+                time.sleep(1)  # polite delay
+
+    except Exception as e:
+        print(f"⚠️ Error scraping {url}: {e}")
+
+# Start scraping
+scrape_all_pages(base_url)
+
+# Save result
+with open("ekaimpact_full_site.txt", "w", encoding="utf-8") as f:
+    f.write("\n\n".join(all_text))
+
+print(f"\n✅ Done! Scraped {len(visited)} pages.")
+
 with open("requirements.txt", "w") as f:
     f.write("""bs4
 cohere
@@ -26,78 +91,38 @@ requests
 from google.colab import files
 files.download("requirements.txt")
 
-import requests
-from bs4 import BeautifulSoup
-
-web=requests.get("https://www.ekaimpact.org/")
-print(web)
-
-web.content
-
-soup=BeautifulSoup(web.content,"html.parser")
-
-print(soup.prettify())
-
-tag=soup.html
-
-type(tag)
-
-tag=soup.a
-tag
-
-soup.title
-
-soup.head()
-
-soup.body
-
-soup.find("h1")
-
-soup.find_all("h1")
-
-class_data=soup.find("div",class_="wixDesktopViewport")
-
-for i in soup.find_all("a"):
-  print(i.get("href"))
-
-img=soup.find_all("img")
-
-for i in img:
-  print(i.get("src"))
-
-text=soup.get_text(separator="/n",strip=True)
-
-with open("eka_site_content.txt", "w", encoding="utf-8") as f:
-    f.write(text)
-
-print("✅ Scraped content saved to eka_site_content.txt")
-
-with open("eka_site_content.txt","r",encoding="utf-8")as f:
+with open("ekaimpact_full_site.txt","r",encoding="utf-8")as f:
   raw_text=f.read()
 
-  lines=[line.strip()for line in raw_text.split("\n")if len(line.strip())>40]
-  cleaned_text="\n".join(lines)
-  with open("eka_cleaned.txt", "w", encoding="utf-8") as f:
-    f.write(cleaned_text)
+lines=[line.strip()for line in raw_text.split("\n") if len(line.strip())>40 ]
+cleaned_text="\n".join(lines)
+
+with open("ekaimpact_cleaned.txt","w",encoding="utf-8")as f:
+  f.write(cleaned_text)
+
+## ekaimpact cleaned text file is file without unwanted short lines and unecessary whitespace
+
+print("Cleaned text saved to ekaimpact_cleaned.txt")
 
 import cohere
 
 
 co = cohere.Client("zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
 
-with open("eka_cleaned.txt", "r", encoding="utf-8") as f:
-    content = f.read()
+with open("ekaimpact_cleaned.txt", "r", encoding="utf-8") as f:
+    context = f.read()
+    context=context[:12000]
 
-prompt = f"""Summarize the NGO website content below:
+system_prompt = (
+    "Use the context below to summarize in 3-4 lines. "
+    "Be concise and avoid repetition.\n\n"
+    "Context:\n{context}\n\nSummary:"
+)
 
-{content}
-
-Summary:
-"""
 
 response = co.generate(
     model="command",
-    prompt=prompt,
+    prompt=system_prompt.format(context=context),
     max_tokens=400,
     temperature=0.5
 )
@@ -112,16 +137,20 @@ print("✅ Summary saved to summary.txt")
 
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import CharacterTextSplitter
-loader=TextLoader("eka_site_content.txt")
-documents=loader.load()
+from langchain.text_splitter import CharacterTextSplitter
 
-text_splitter=CharacterTextSplitter(
-    separator="\n",
-    chunk_size=300,
-    chunk_overlap=50,
-)
+# Load your cleaned text
+with open("ekaimpact_full_site.txt", "r", encoding="utf-8") as f:
+    content = f.read()
 
-docs=text_splitter.split_documents(documents)
+# Split content into smaller chunks
+splitter = CharacterTextSplitter(separator="\n", chunk_size=2000, chunk_overlap=100)
+chunks = splitter.split_text(content)
+
+# Save chunks (optional)
+with open("ekaimpact_chunks.txt", "w", encoding="utf-8") as f:
+    for chunk in chunks:
+        f.write(chunk + "\n---\n")
 
 import cohere
 from langchain.embeddings.base import Embeddings
@@ -176,6 +205,28 @@ class CohereLLM(LLM):
         )
         return response.generations[0].text.strip()
 
+from langchain.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.docstore.document import Document
+
+
+with open("ekaimpact_cleaned.txt", "r", encoding="utf-8") as f:
+    text = f.read()
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=200
+)
+chunks = text_splitter.split_text(text)
+docs = [Document(page_content=chunk) for chunk in chunks]
+
+
+embedder = MyCohereEmbedder(api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8")
+
+#  Create vectorstore
+vectorstore = FAISS.from_documents(docs, embedder)
+vectorstore.save_local("faiss_index")
+
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
 
@@ -208,48 +259,8 @@ print(result)
 result = qa.run("What does EkaImpact do in the healthcare sector?")
 print(result)
 
-result = qa.run("what is Neev Ki Eent Foundation")
-print(result)
-
-result = qa.run("What is EkaImpact Vison?")
-print(result)
-
-result = qa.run("What is EkaImpact mission?")
-print(result)
-
-result=qa.run("How can we join Ekaimpact?")
-print(result)
-
-result=qa.run("how can we get in touch with Ekaimpact?")
-print(result)
-
 result=qa.run("who all are in the team of ekaimapct?")
 print(result)
-
-from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.embeddings import CohereEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.docstore.document import Document
-
-# 1. Load your text file
-with open("eka_cleaned.txt", "r", encoding="utf-8") as f:
-    raw_text = f.read()
-
-# 2. Split into chunks
-text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-texts = text_splitter.split_text(raw_text)
-
-# 3. Create Document objects
-docs = [Document(page_content=t) for t in texts]
-
-# 4. Create embeddings
-embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
-
-# 5. Build and save FAISS index
-vectorstore = FAISS.from_documents(docs, embedding)
-vectorstore.save_local("faiss_index")
-
-print(f"✅ Total chunks: {len(texts)}")
 
 from flask import Flask, request, jsonify
 from langchain.vectorstores import FAISS
@@ -262,7 +273,6 @@ app = Flask(__name__)
 # Load embeddings and vector store
 embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
 vectorstore = FAISS.load_local("faiss_index", embedding, allow_dangerous_deserialization=True)
-
 llm = Cohere(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", model="command", max_tokens=500)
 qa = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever(), return_source_documents=False)
 
@@ -275,18 +285,3 @@ def chat():
 if __name__ == "__main__":
     app.run()
 
-from langchain_community.embeddings import CohereEmbeddings
-from langchain_community.vectorstores import FAISS
-
-embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8", user_agent="your-app")
-print("🔁 Generating embedding...")
-vectorstore = FAISS.from_documents(docs, embedding)
-print("✅ Embedding complete")
-
-print("💾 Saving FAISS index...")
-vectorstore.save_local("faiss_index")
-print("✅ All done")
-
-!pip install -r requirements.txt
-
-vectorstore.save_local("faiss_index")
