@@ -205,21 +205,33 @@ class CohereLLM(LLM):
         )
         return response.generations[0].text.strip()
 
-from langchain_community.embeddings import CohereEmbeddings
-from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import CohereEmbeddings
+from langchain.schema import Document
 
-with open("ekaimpact_full_site.txt", "r", encoding="utf-8") as f:
-    text = f.read()
+# Step 1: Load cleaned text
+with open("ekaimpact_cleaned.txt", "r", encoding="utf-8") as f:
+    ekaimpact_text = f.read()
 
-splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-chunks = splitter.split_text(text)
+# Step 2: Chunk it
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+chunks = splitter.split_text(ekaimpact_text)
+
+# Step 3: Convert to Document objects
 docs = [Document(page_content=chunk) for chunk in chunks]
 
-embedding = CohereEmbeddings(cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8",user_agent="ekaimpact-chatbot/1.0")
+# Step 4: Create embeddings
+embedding = CohereEmbeddings(
+    cohere_api_key="zJNR0dOqvUypmGWWcCZJdyaH5WCa1uyViiF3qHv8",
+    user_agent="your-app"
+)
+
+# Step 5: Store in FAISS
 vectorstore = FAISS.from_documents(docs, embedding)
 vectorstore.save_local("faiss_index")
+
+print("✅ FAISS index built and saved.")
 
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
@@ -275,4 +287,3 @@ def chat():
     query = request.json.get("query")
     result = qa.invoke(query)  # <--- modern usage
     return jsonify({"response": result})
-
