@@ -113,11 +113,13 @@ with open("ekaimpact_cleaned.txt", "r", encoding="utf-8") as f:
     context = f.read()
     context=context[:12000]
 
-system_prompt = (
-    "Use the context below to summarize in 3-4 lines. "
-    "Be concise and avoid repetition.\n\n"
-    "Context:\n{context}\n\nSummary:"
-)
+system_prompt = """
+You are an intelligent assistant for answering questions about EkaImpact.
+Use the provided context to give helpful, clear, and concise responses.
+If the answer is not present in the context, respond with "I’m sorry, I don’t have that information."
+Make the response helpful and friendly.
+
+"""
 
 
 response = co.generate(
